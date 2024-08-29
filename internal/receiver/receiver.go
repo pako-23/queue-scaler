@@ -1,42 +1,36 @@
 package receiver
 
 import (
-	"context"
 	"net"
 
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
-	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
 )
 
 const DefaultAddress = ":4317"
 
+type Span struct {
+	Duration    uint64
+	Parent      string
+	ServiceName string
+	SpanId      string
+	StartTime   uint64
+	TraceId     string
+}
+
 type OTLPReceiver struct {
 	server  *grpc.Server
-	ch      chan<- *tracepb.ResourceSpans
+	ch      chan<- *Span
 	address string
 }
 
 type server struct {
 	coltracepb.UnimplementedTraceServiceServer
-	ch chan<- *tracepb.ResourceSpans
+	ch chan<- *Span
 }
 
 type Option func(*OTLPReceiver)
-
-func (s *server) Export(
-	ctx context.Context, in *coltracepb.ExportTraceServiceRequest,
-) (*coltracepb.ExportTraceServiceResponse, error) {
-	for _, span := range in.ResourceSpans {
-		s.ch <- span
-	}
-
-	return &coltracepb.ExportTraceServiceResponse{
-		PartialSuccess: &coltracepb.ExportTracePartialSuccess{
-			RejectedSpans: 0,
-		},
-	}, nil
-}
 
 func NewOLTPReceiver(options ...Option) *OTLPReceiver {
 	receiver := &OTLPReceiver{
@@ -52,7 +46,7 @@ func NewOLTPReceiver(options ...Option) *OTLPReceiver {
 	return receiver
 }
 
-func WithChannel(ch chan<- *tracepb.ResourceSpans) Option {
+func WithChannel(ch chan<- *Span) Option {
 	return func(receiver *OTLPReceiver) {
 		receiver.ch = ch
 	}
